@@ -7,4 +7,4 @@ langchain-google-genai
 
 
 fastapi 
-
+browser-use
