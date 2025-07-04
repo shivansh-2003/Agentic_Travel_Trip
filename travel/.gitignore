@@ -10,4 +10,3 @@ wheels/
 .venv/
 .env
 .python-version
-test.py

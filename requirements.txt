@@ -2,9 +2,11 @@ mcp-use
 langchain-community
 langchain-core
 langchain-openai
-langchain-anthropic
-langchain-google-genai
-
-
 fastapi 
 browser-use
+openai
+langgraph
+tavily-python
+requests
+python-dotenv
+wikipedia

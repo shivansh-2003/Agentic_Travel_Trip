@@ -33,7 +33,7 @@ async def main():
 
     # Run the query
     result = await agent.run(
-        "Find the best airbnb in San Francisco ",
+        "Find the best airbnb in San Francisco for 2 adults and 3 children",
     )
     print(f"\nResult: {result}")
 
