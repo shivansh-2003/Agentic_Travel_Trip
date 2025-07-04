@@ -11,13 +11,13 @@ from pydantic import BaseModel, Field, validator
 import os
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
+from utils import search_airport_id
 
 # Load environment variables
 load_dotenv()
 
 # Initialize FastMCP server
 mcp = FastMCP(name="FlightSearchServer", stateless_http=True)
-
 
 
 class FlightSearchRequest(BaseModel):
@@ -59,116 +59,41 @@ class FlightSearchRequest(BaseModel):
         return v
 
 
-def search_airport_id(query: str, language_code: str = "en-US", country_code: str = "US", api_key: str = None) -> Optional[str]:
+def search_flights_api(request: FlightSearchRequest) -> Dict[str, Any]:
     """
-    Search for airport ID using Google Flights API
+    Search for flights using Google Flights API with Pydantic validation
     
     Args:
-        query: The search term to find an airport (place name, city, or airport code)
-        language_code: Language code for response
-        country_code: Country code for filtering
-        api_key: RapidAPI key for authentication results
-        api_key: RapidAPI key for authentication
-    
-    Returns:
-        Airport ID (e.g., "DEL") if found, None if not found
-    """
-    url = "https://google-flights2.p.rapidapi.com/api/v1/searchAirport"
-    
-    querystring = {
-        "query": query,
-        "language_code": language_code,
-        "country_code": country_code
-    }
-    
-    headers = {
-        "x-rapidapi-key": api_key or os.getenv("Flight_api"),
-        "x-rapidapi-host": "google-flights2.p.rapidapi.com"
-    }
-    
-    try:
-        response = requests.get(url, headers=headers, params=querystring)
-        response.raise_for_status()
-        
-        data = response.json()
-        
-        # Check if the request was successful
-        if data.get("status") and data.get("data"):
-            # Look for airport in the data
-            for item in data["data"]:
-                if "list" in item:
-                    for airport in item["list"]:
-                        if airport.get("type") == "airport" and airport.get("id"):
-                            return airport["id"]
-                # Also check direct data structure
-                elif item.get("id"):
-                    return item["id"]
-        
-        return None
-        
-    except requests.exceptions.RequestException as e:
-        print(f"Request failed: {e}")
-        return None
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        return None
-
-
-def search_flights_api(departure_location: str, arrival_location: str, outbound_date: str, 
-                      travel_class: str = "ECONOMY", adults: int = 1, children: int = 0,
-                      infant_on_lap: int = 0, infant_in_seat: int = 0, show_hidden: int = 0,
-                      currency: str = "USD", language_code: str = "en-US", 
-                      country_code: str = "US", api_key: str = None) -> Dict[str, Any]:
-    """
-    Search for flights using Google Flights API
-    
-    Args:
-        departure_location: Departure city/airport name or IATA code
-        arrival_location: Arrival city/airport name or IATA code
-        outbound_date: Departure date in YYYY-MM-DD format
-        travel_class: Travel class (ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST)
-        adults: Number of adult passengers
-        children: Number of child passengers
-        infant_on_lap: Number of infants on lap
-        infant_in_seat: Number of infants in seat
-        show_hidden: Include hidden flights (1=YES, 0=NO)
-        currency: Currency code for prices
-        language_code: Language code for response
-        country_code: Country code for filtering
+        request: Pydantic model containing all search parameters
     
     Returns:
         Flight search results as dictionary
     """
     
-    # Validate travel class
-    valid_classes = ["ECONOMY", "PREMIUM_ECONOMY", "BUSINESS", "FIRST"]
-    if travel_class not in valid_classes:
-        return {"error": f"Travel class must be one of: {', '.join(valid_classes)}"}
+    # Get API key from environment (fallback to the one in utils.py)
+    api_key = os.getenv("Flight_api", "00c4aad806msh8e00931585a4552p1cba4fjsn25893b3ff1c5")
     
-    # Validate date
-    try:
-        outbound_dt = datetime.strptime(outbound_date, '%Y-%m-%d')
-        today = datetime.now().date()
-        if outbound_dt.date() <= today:
-            return {"error": f"Outbound date {outbound_date} must be in the future"}
-    except ValueError:
-        return {"error": "Invalid date format. Please use YYYY-MM-DD format."}
+    # Clean input strings
+    departure_clean = request.departure_location.strip().strip('"').strip("'")
+    arrival_clean = request.arrival_location.strip().strip('"').strip("'")
     
     # Get departure airport ID
-    if len(departure_location) == 3 and departure_location.isupper():
-        departure_id = departure_location
+    if len(departure_clean) == 3 and departure_clean.isupper():
+        departure_id = departure_clean
     else:
-        departure_id = search_airport_id(departure_location, language_code, country_code, api_key)
+        departure_id = search_airport_id(departure_clean, request.language_code, request.country_code, api_key)
         if not departure_id:
-            return {"error": f"Could not find departure airport for: {departure_location}"}
+            return {"error": f"Could not find departure airport for: {request.departure_location}. Try using the 3-letter airport code (e.g., BOM for Mumbai, DEL for Delhi)"}
     
     # Get arrival airport ID
-    if len(arrival_location) == 3 and arrival_location.isupper():
-        arrival_id = arrival_location
+    if len(arrival_clean) == 3 and arrival_clean.isupper():
+        arrival_id = arrival_clean
     else:
-        arrival_id = search_airport_id(arrival_location, language_code, country_code, api_key)
+        arrival_id = search_airport_id(arrival_clean, request.language_code, request.country_code, api_key)
         if not arrival_id:
-            return {"error": f"Could not find arrival airport for: {arrival_location}"}
+            return {"error": f"Could not find arrival airport for: {request.arrival_location}. Try using the 3-letter airport code (e.g., LHR for London, JFK for New York)"}
+    
+    print(f"Found airports - Departure: {departure_id}, Arrival: {arrival_id}")
     
     # Prepare API request
     url = "https://google-flights2.p.rapidapi.com/api/v1/searchFlights"
@@ -176,16 +101,16 @@ def search_flights_api(departure_location: str, arrival_location: str, outbound_
     querystring = {
         "departure_id": departure_id,
         "arrival_id": arrival_id,
-        "outbound_date": outbound_date,
-        "travel_class": travel_class,
-        "adults": str(adults),
-        "children": str(children),
-        "infant_on_lap": str(infant_on_lap),
-        "infant_in_seat": str(infant_in_seat),
-        "show_hidden": str(show_hidden),
-        "currency": currency,
-        "language_code": language_code,
-        "country_code": country_code
+        "outbound_date": request.outbound_date,
+        "travel_class": request.travel_class,
+        "adults": str(request.adults),
+        "children": str(request.children),
+        "infant_on_lap": str(request.infant_on_lap),
+        "infant_in_seat": str(request.infant_in_seat),
+        "show_hidden": str(request.show_hidden),
+        "currency": request.currency,
+        "language_code": request.language_code,
+        "country_code": request.country_code
     }
     
     headers = {
@@ -335,8 +260,8 @@ def search_flights(
     Search for one-way flights between two locations.
     
     Args:
-        departure_location: Departure city/airport name or IATA code (e.g., "New York" or "JFK")
-        arrival_location: Arrival city/airport name or IATA code (e.g., "London" or "LHR")
+        departure_location: Departure city/airport name or IATA code (e.g., "Mumbai", "New York" or "JFK")
+        arrival_location: Arrival city/airport name or IATA code (e.g., "Delhi", "London" or "LHR")
         outbound_date: Departure date in YYYY-MM-DD format (must be in the future)
         travel_class: Travel class - ECONOMY, PREMIUM_ECONOMY, BUSINESS, or FIRST (default: ECONOMY)
         adults: Number of adult passengers (age 12+, default: 1)
@@ -352,14 +277,9 @@ def search_flights(
         Formatted flight search results including airline, times, duration, price, and stops
     """
     
-    # Check if API key is configured
-    api_key = api_key or os.getenv("Flight_api")
-    if not api_key:
-        return "❌ Error: Flight_api environment variable not set. Please configure your RapidAPI key."
-    
     try:
-        # Search flights using API
-        flight_data = search_flights_api(
+        # Create and validate the request using Pydantic
+        request = FlightSearchRequest(
             departure_location=departure_location,
             arrival_location=arrival_location,
             outbound_date=outbound_date,
@@ -371,9 +291,11 @@ def search_flights(
             show_hidden=show_hidden,
             currency=currency,
             language_code=language_code,
-            country_code=country_code,
-            api_key=api_key
+            country_code=country_code
         )
+        
+        # Search flights using API
+        flight_data = search_flights_api(request)
         
         # Format and return results
         return format_flight_results(flight_data)

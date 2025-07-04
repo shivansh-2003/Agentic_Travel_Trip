@@ -10,13 +10,14 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 
-from servers.hotels import mcp as hotel_mcp
-
+from hotels import mcp as hotel_mcp
+from flight_search import mcp as flight_mcp
 # Create a combined lifespan to manage all session managers
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
     async with contextlib.AsyncExitStack() as stack:
         await stack.enter_async_context(hotel_mcp.session_manager.run())
+        await stack.enter_async_context(flight_mcp.session_manager.run())
         yield
 
 # Create FastAPI app with lifespan
@@ -30,6 +31,9 @@ app = FastAPI(
 
 app.mount("/hotels", hotel_mcp.streamable_http_app())
 print("✅ Hotel booking server mounted at /hotels")
+
+app.mount("/flight", flight_mcp.streamable_http_app())
+print("✅ Flight search server mounted at /flight")
 
 # Get port from environment or default to 10000
 PORT = 8000

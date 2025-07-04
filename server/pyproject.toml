@@ -1,10 +1,13 @@
 [project]
-name = "servers"
+name = "server"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "mcp[cli]>=1.10.0",
+    "fastapi>=0.115.14",
+    "mcp[cli]>=1.10.1",
+    "python-dotenv>=1.1.1",
     "requests>=2.32.4",
+    "uvicorn>=0.35.0",
 ]
