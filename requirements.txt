@@ -2,7 +2,8 @@ mcp-use
 langchain-community
 langchain-core
 langchain-openai
-fastapi 
+fastapi
+uvicorn
 browser-use
 openai
 langgraph
@@ -10,3 +11,4 @@ tavily-python
 requests
 python-dotenv
 wikipedia
+mcp-server
