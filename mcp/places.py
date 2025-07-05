@@ -10,13 +10,12 @@ async def main():
 
     # Create configuration dictionary
     config = {
-  "mcpServers": {
-    "airbnb": {
-      "command": "npx",
-      "args": ["-y", "@openbnb/mcp-server-airbnb"]
+        "mcpServers": {
+            "travel": {
+           "url":"https://agentic-travel-trip.onrender.com/travel/mcp/"
+           }
+        }
     }
-  }
-}
 
     # Create MCPClient from configuration dictionary
     client = MCPClient.from_dict(config)
@@ -29,10 +28,9 @@ async def main():
 
     # Run the query
     result = await agent.run(
-        "Find the best airbnb in San Francisco for 2 adults and 3 children",
+        "Find the best places to visit in Mumbai",
     )
     print(f"\nResult: {result}")
 
 if __name__ == "__main__":
     asyncio.run(main())
-    
